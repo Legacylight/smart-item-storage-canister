@@ -107,7 +107,7 @@ fn search_smart_storage_items(query: String) -> Vec<SmartStorageItem> {
 }
 
 #[ic_cdk::update]
-fn add_smart_storage_item(item: SmartStorageItemPayload) -> Option<SmartStorageItem> {
+fn add_smart_storage_item(item: SmartStorageItemPayload) -> Result<SmartStorageItem, Error>  {
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
@@ -124,7 +124,7 @@ fn add_smart_storage_item(item: SmartStorageItemPayload) -> Option<SmartStorageI
         is_available: item.is_available,
     };
     do_insert_smart_storage_item(&storage_item);
-    Some(storage_item)
+    Ok(storage_item)
 }
 
 #[ic_cdk::update]
@@ -139,7 +139,7 @@ fn update_smart_storage_item(id: u64, payload: SmartStorageItemPayload) -> Resul
             
             // No need to call do_insert_smart_storage_item as the item is modified in place
 
-            Ok(item.clone())
+            Ok(item)
         }
         None => Err(Error::NotFound {
             msg: format!(
@@ -166,7 +166,7 @@ fn mark_item_as_available(id: u64) -> Result<SmartStorageItem, Error> {
         Some(mut item) => {
             item.is_available = true;
             do_insert_smart_storage_item(&item);
-            Ok(item.clone())
+            Ok(item)
         }
         None => Err(Error::NotFound {
             msg: format!("an item with id={} not found", id),
@@ -179,7 +179,7 @@ fn mark_item_as_unavailable(id: u64) -> Result<SmartStorageItem, Error> {
     if let Some(mut item) = STORAGE_ITEM_STORAGE.with(|service| service.borrow_mut().get(&id)) {
         item.is_available = false;
         do_insert_smart_storage_item(&item);
-        Ok(item.clone())
+        Ok(item)
     } else {
         Err(Error::NotFound {
             msg: format!("an item with id={} not found", id),
