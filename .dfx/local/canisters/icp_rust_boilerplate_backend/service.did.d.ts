@@ -2,7 +2,8 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 
 export interface ChangeRecord { 'change_type' : string, 'timestamp' : bigint }
-export type Error = { 'NotFound' : { 'msg' : string } };
+export type Error = { 'NotFound' : { 'msg' : string } } |
+  { 'CustomError' : { 'msg' : string, 'code' : number } };
 export interface ItemStatistics {
   'total_items' : bigint,
   'average_availability_rate' : number,
@@ -25,12 +26,20 @@ export interface SmartStorageItemPayload {
   'is_available' : boolean,
   'location' : string,
 }
+export interface TransactionRecord {
+  'change_type' : string,
+  'timestamp' : bigint,
+}
 export interface _SERVICE {
   'add_smart_storage_item' : ActorMethod<
     [SmartStorageItemPayload],
     [] | [SmartStorageItem]
   >,
   'batch_query' : ActorMethod<[Array<Query>], Array<QueryResult>>,
+  'bulk_update_smart_storage_items' : ActorMethod<
+    [Array<{ 'id' : bigint, 'payload' : SmartStorageItemPayload }>],
+    Array<{ 'Ok' : SmartStorageItem } | { 'Err' : Error }>
+  >,
   'delete_smart_storage_item' : ActorMethod<
     [bigint],
     { 'Ok' : SmartStorageItem } |
@@ -43,6 +52,14 @@ export interface _SERVICE {
   >,
   'get_item_history' : ActorMethod<[bigint], Array<ChangeRecord>>,
   'get_item_statistics' : ActorMethod<[], ItemStatistics>,
+  'get_item_transaction_history' : ActorMethod<
+    [bigint],
+    Array<TransactionRecord>
+  >,
+  'get_paginated_smart_storage_items' : ActorMethod<
+    [bigint, bigint],
+    Array<SmartStorageItem>
+  >,
   'get_smart_storage_item' : ActorMethod<
     [bigint],
     { 'Ok' : SmartStorageItem } |

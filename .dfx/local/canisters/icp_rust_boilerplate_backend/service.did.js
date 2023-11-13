@@ -15,7 +15,10 @@ export const idlFactory = ({ IDL }) => {
     'location' : IDL.Text,
   });
   const Query = IDL.Variant({ 'GetItem' : IDL.Nat64 });
-  const Error = IDL.Variant({ 'NotFound' : IDL.Record({ 'msg' : IDL.Text }) });
+  const Error = IDL.Variant({
+    'NotFound' : IDL.Record({ 'msg' : IDL.Text }),
+    'CustomError' : IDL.Record({ 'msg' : IDL.Text, 'code' : IDL.Nat8 }),
+  });
   const QueryResult = IDL.Variant({
     'Error' : Error,
     'Item' : SmartStorageItem,
@@ -28,6 +31,10 @@ export const idlFactory = ({ IDL }) => {
     'total_items' : IDL.Nat64,
     'average_availability_rate' : IDL.Float64,
   });
+  const TransactionRecord = IDL.Record({
+    'change_type' : IDL.Text,
+    'timestamp' : IDL.Nat64,
+  });
   return IDL.Service({
     'add_smart_storage_item' : IDL.Func(
         [SmartStorageItemPayload],
@@ -35,6 +42,18 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'batch_query' : IDL.Func([IDL.Vec(Query)], [IDL.Vec(QueryResult)], []),
+    'bulk_update_smart_storage_items' : IDL.Func(
+        [
+          IDL.Vec(
+            IDL.Record({
+              'id' : IDL.Nat64,
+              'payload' : SmartStorageItemPayload,
+            })
+          ),
+        ],
+        [IDL.Vec(IDL.Variant({ 'Ok' : SmartStorageItem, 'Err' : Error }))],
+        [],
+      ),
     'delete_smart_storage_item' : IDL.Func(
         [IDL.Nat64],
         [IDL.Variant({ 'Ok' : SmartStorageItem, 'Err' : Error })],
@@ -52,6 +71,16 @@ export const idlFactory = ({ IDL }) => {
       ),
     'get_item_history' : IDL.Func([IDL.Nat64], [IDL.Vec(ChangeRecord)], []),
     'get_item_statistics' : IDL.Func([], [ItemStatistics], []),
+    'get_item_transaction_history' : IDL.Func(
+        [IDL.Nat64],
+        [IDL.Vec(TransactionRecord)],
+        ['query'],
+      ),
+    'get_paginated_smart_storage_items' : IDL.Func(
+        [IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(SmartStorageItem)],
+        [],
+      ),
     'get_smart_storage_item' : IDL.Func(
         [IDL.Nat64],
         [IDL.Variant({ 'Ok' : SmartStorageItem, 'Err' : Error })],
