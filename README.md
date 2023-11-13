@@ -59,6 +59,7 @@ To use the smart item storage canister, you can explore the provided query and u
 - **get_item_statistics():** Get statistics about stored items.
 - **batch_query(queries: Vec<Query>):** Batch query multiple items.
 - **get_paginated_smart_storage_items(limit: usize, offset: usize):** Get paginated items.
+- **get_item_transaction_history(id: u64):** Get the transaction history for a specific item.
 
 ### Update Functions
 
@@ -105,5 +106,3 @@ Feel free to contribute to the project by submitting issues or pull requests. Fo
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ```
-
-Copy and paste this content into a file named `README.md` in the root directory of your project.
