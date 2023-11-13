@@ -1,3 +1,6 @@
+Certainly! Here's an updated version of the README markdown with additional details:
+
+```markdown
 # Smart Item Storage Canister
 
 This repository contains the source code for a smart item storage canister on the Internet Computer (IC). The canister allows users to manage and query a collection of smart storage items, providing functionality such as adding, updating, deleting, and querying items based on various criteria.
@@ -25,6 +28,7 @@ Key Features:
 - **Updating Availability**: Mark items as available or unavailable.
 - **Statistics**: Obtain statistics about the stored items, including total items and average availability rate.
 - **History**: View the history of changes for a specific item.
+- **Batch Queries**: Perform multiple queries in a single batch.
 
 ## Prerequisites
 
@@ -57,6 +61,7 @@ To use the smart item storage canister, you can explore the provided query and u
 - **is_item_available(id: u64):** Check if an item is available.
 - **get_item_statistics():** Get statistics about stored items.
 - **batch_query(queries: Vec<Query>):** Batch query multiple items.
+- **get_paginated_smart_storage_items(limit: usize, offset: usize):** Get paginated items.
 
 ### Update Functions
 
@@ -65,6 +70,7 @@ To use the smart item storage canister, you can explore the provided query and u
 - **mark_item_as_available(id: u64):** Mark an item as available.
 - **mark_item_as_unavailable(id: u64):** Mark an item as unavailable.
 - **delete_smart_storage_item(id: u64):** Delete an item from the storage.
+- **bulk_update_smart_storage_items(updates: Vec<(u64, SmartStorageItemPayload)>):** Bulk update multiple items.
 
 ## Testing
 
@@ -78,10 +84,10 @@ cargo test
 
 To deploy the canister locally, follow these steps:
 
-1. Build the canister:
+1. Start the canister:
 
    ```bash
-   dfx build
+   dfx start
    ```
 
 2. Deploy the canister:
