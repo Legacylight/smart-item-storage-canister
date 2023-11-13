@@ -1,6 +1,3 @@
-Certainly! Here's an updated version of the README markdown with additional details:
-
-```markdown
 # Smart Item Storage Canister
 
 This repository contains the source code for a smart item storage canister on the Internet Computer (IC). The canister allows users to manage and query a collection of smart storage items, providing functionality such as adding, updating, deleting, and querying items based on various criteria.
