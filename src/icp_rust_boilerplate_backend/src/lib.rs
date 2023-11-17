@@ -315,4 +315,59 @@ fn get_item_statistics() -> ItemStatistics {
     }
 }
 
+#[derive(candid::CandidType, Serialize, Deserialize)]
+struct TransactionRecord {
+    timestamp: u64,
+    change_type: String, // Add this line
+    transaction_type: String,
+}
+
+#[ic_cdk::query]
+fn get_item_transaction_history(id: u64) -> Vec<TransactionRecord> {
+    match _get_smart_storage_item(&id) {
+        Some(item) => {
+            let mut history = Vec::new();
+            if let Some(updated_at) = item.updated_at {
+                history.push(TransactionRecord {
+                    timestamp: updated_at,
+                    change_type: "Update".to_string(),
+                    transaction_type: "Update".to_string(),
+                });
+            }
+            history.push(TransactionRecord {
+                timestamp: item.created_at,
+                change_type: "Creation".to_string(),
+                transaction_type: "Creation".to_string(),
+            });
+            history
+        }
+        None => Vec::new(),
+    }
+}
+
+
+#[ic_cdk::update]
+fn bulk_update_smart_storage_items(updates: Vec<(u64, SmartStorageItemPayload)>) -> Vec<Result<SmartStorageItem, Error>> {
+    let mut results = Vec::new();
+    for (id, payload) in updates {
+        let result = update_smart_storage_item(id, payload);
+        results.push(result);
+    }
+    results
+}
+
+#[ic_cdk::query]
+fn get_paginated_smart_storage_items(limit: usize, offset: usize) -> Vec<SmartStorageItem> {
+    STORAGE_ITEM_STORAGE.with(|service| {
+        service
+            .borrow()
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|(_, item)| item.clone())
+            .collect()
+    })
+}
+
+
 ic_cdk::export_candid!();
