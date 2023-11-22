@@ -2,6 +2,8 @@
 extern crate serde;
 
 use candid::{Decode, Encode};
+use ic_cdk::caller;
+use validator::Validate;
 use ic_cdk::api::time;
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{BoundedStorable, Cell, DefaultMemoryImpl, StableBTreeMap, Storable};
@@ -14,6 +16,7 @@ type IdCell = Cell<u64, Memory>;
 #[derive(candid::CandidType, Clone, Serialize, Deserialize, Default)]
 struct SmartStorageItem {
     id: u64,
+    owner: String,
     name: String,
     description: String,
     location: String,
@@ -53,14 +56,18 @@ thread_local! {
         ));
 }
 
-#[derive(candid::CandidType, Serialize, Deserialize, Default)]
+#[derive(candid::CandidType, Serialize, Deserialize, Default, Validate)]
 struct SmartStorageItemPayload {
+    #[validate(length(min = 3))]
     name: String,
+    #[validate(length(min = 5))]
     description: String,
+    #[validate(length(min = 2))]
     location: String,
     is_available: bool,
 }
 
+// function to get an item
 #[ic_cdk::query]
 fn get_smart_storage_item(id: u64) -> Result<SmartStorageItem, Error> {
     match _get_smart_storage_item(&id) {
@@ -71,6 +78,7 @@ fn get_smart_storage_item(id: u64) -> Result<SmartStorageItem, Error> {
     }
 }
 
+// function to get all items
 #[ic_cdk::query]
 fn get_all_smart_storage_items() -> Vec<SmartStorageItem> {
     STORAGE_ITEM_STORAGE.with(|service| {
@@ -82,6 +90,7 @@ fn get_all_smart_storage_items() -> Vec<SmartStorageItem> {
     })
 }
 
+// function to get only available items
 #[ic_cdk::query]
 fn get_available_smart_storage_items() -> Vec<SmartStorageItem> {
     STORAGE_ITEM_STORAGE.with(|service| {
@@ -94,6 +103,7 @@ fn get_available_smart_storage_items() -> Vec<SmartStorageItem> {
     })
 }
 
+// function to search for items matching a specific query
 #[ic_cdk::query]
 fn search_smart_storage_items(query: String) -> Vec<SmartStorageItem> {
     STORAGE_ITEM_STORAGE.with(|service| {
@@ -106,16 +116,25 @@ fn search_smart_storage_items(query: String) -> Vec<SmartStorageItem> {
     })
 }
 
+// function to add an item to the canister
 #[ic_cdk::update]
-fn add_smart_storage_item(item: SmartStorageItemPayload) -> Option<SmartStorageItem> {
+fn add_smart_storage_item(item: SmartStorageItemPayload) -> Result<SmartStorageItem, Error> {
+    // validates payload
+    let check_payload = _check_input(&item);
+    // if input validations fail for payload, return an error
+    if check_payload.is_err(){
+        return Err(check_payload.err().unwrap());
+    }
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
             counter.borrow_mut().set(current_value + 1)
         })
         .expect("cannot increment id counter");
+
     let storage_item = SmartStorageItem {
         id,
+        owner: caller().to_string(),
         name: item.name,
         description: item.description,
         location: item.location,
@@ -123,21 +142,33 @@ fn add_smart_storage_item(item: SmartStorageItemPayload) -> Option<SmartStorageI
         updated_at: None,
         is_available: item.is_available,
     };
+    // save item
     do_insert_smart_storage_item(&storage_item);
-    Some(storage_item)
+    Ok(storage_item)
 }
 
 #[ic_cdk::update]
 fn update_smart_storage_item(id: u64, payload: SmartStorageItemPayload) -> Result<SmartStorageItem, Error> {
     match STORAGE_ITEM_STORAGE.with(|service| service.borrow_mut().get(&id)) {
         Some(mut item) => {
+            // Ensures that only the owner of an item can update
+            if !_check_if_owner(&item) {
+                return Err(Error::NotOwner {msg: format!("Caller={} is not owner of item with id={}.", caller().to_string(), id)})
+            }
+            // Validates payload
+            let check_payload = _check_input(&payload);
+            // Returns an error if validations failed
+            if check_payload.is_err(){
+                return Err(check_payload.err().unwrap());
+            }
             item.name = payload.name;
             item.description = payload.description;
             item.location = payload.location;
             item.updated_at = Some(time());
             item.is_available = payload.is_available;
             
-            // No need to call do_insert_smart_storage_item as the item is modified in place
+            // save item
+            do_insert_smart_storage_item(&item);
 
             Ok(item.clone())
         }
@@ -164,7 +195,12 @@ fn is_item_available(id: u64) -> Result<bool, Error> {
 fn mark_item_as_available(id: u64) -> Result<SmartStorageItem, Error> {
     match STORAGE_ITEM_STORAGE.with(|service| service.borrow_mut().get(&id)) {
         Some(mut item) => {
+            // Ensures only the owner of an item can update its availability
+            if !_check_if_owner(&item) {
+                return Err(Error::NotOwner {msg: format!("Caller={} is not owner of item with id={}.", caller().to_string(), id)})
+            }
             item.is_available = true;
+            // save item
             do_insert_smart_storage_item(&item);
             Ok(item.clone())
         }
@@ -177,7 +213,12 @@ fn mark_item_as_available(id: u64) -> Result<SmartStorageItem, Error> {
 #[ic_cdk::update]
 fn mark_item_as_unavailable(id: u64) -> Result<SmartStorageItem, Error> {
     if let Some(mut item) = STORAGE_ITEM_STORAGE.with(|service| service.borrow_mut().get(&id)) {
+        // Ensures only the owner of an item can update its availability
+        if !_check_if_owner(&item) {
+            return Err(Error::NotOwner {msg: format!("Caller={} is not owner of item with id={}.", caller().to_string(), id)})
+        }
         item.is_available = false;
+        // save item
         do_insert_smart_storage_item(&item);
         Ok(item.clone())
     } else {
@@ -193,6 +234,20 @@ fn do_insert_smart_storage_item(item: &SmartStorageItem) {
 
 #[ic_cdk::update]
 fn delete_smart_storage_item(id: u64) -> Result<SmartStorageItem, Error> {
+    let smart_storage_item = _get_smart_storage_item(&id);
+    // returns an error if item doesn't exist
+    if smart_storage_item.is_none(){
+        return Err(Error::NotFound {
+            msg: format!(
+                "couldn't delete an item with id={}. item not found.",
+                id
+            ),
+        })
+    }
+    // Ensures only the owner of the item can delete it
+    if !_check_if_owner(&smart_storage_item.unwrap()) {
+        return Err(Error::NotOwner {msg: format!("Caller={} is not owner of item with id={}.", caller().to_string(), id)})
+    }
     match STORAGE_ITEM_STORAGE.with(|service| service.borrow_mut().remove(&id)) {
         Some(item) => Ok(item),
         None => Err(Error::NotFound {
@@ -207,6 +262,8 @@ fn delete_smart_storage_item(id: u64) -> Result<SmartStorageItem, Error> {
 #[derive(candid::CandidType, Deserialize, Serialize)]
 enum Error {
     NotFound { msg: String },
+    NotOwner {msg: String},
+    ValidationFailed {content: String}
 }
 
 fn _get_smart_storage_item(id: &u64) -> Option<SmartStorageItem> {
@@ -229,6 +286,7 @@ struct ItemStatistics {
     average_availability_rate: f64,
 }
 
+// function to return all items in an orderly manner based off their names
 #[ic_cdk::query]
 fn sort_items_by_name() -> Vec<SmartStorageItem> {
     let mut items = STORAGE_ITEM_STORAGE.with(|service| {
@@ -238,7 +296,7 @@ fn sort_items_by_name() -> Vec<SmartStorageItem> {
             .map(|(_, item)| item.clone())
             .collect::<Vec<_>>()
     });
-
+    // sorts items based off their names
     items.sort_by(|a, b| a.name.cmp(&b.name));
     items
 }
@@ -367,6 +425,25 @@ fn get_paginated_smart_storage_items(limit: usize, offset: usize) -> Vec<SmartSt
             .map(|(_, item)| item.clone())
             .collect()
     })
+}
+
+// Helper function to check whether the caller is the author of the blog post
+fn _check_if_owner(smart_storage_item: &SmartStorageItem) -> bool {
+    if smart_storage_item.owner.to_string() != caller().to_string(){
+        false  
+    }else{
+        true
+    }
+}
+
+// Helper function to check the input data of the payload
+fn _check_input(payload: &SmartStorageItemPayload) -> Result<(), Error> {
+    let check_payload = payload.validate();
+    if check_payload.is_err() {
+        return Err(Error::ValidationFailed { content: check_payload.err().unwrap().to_string()})
+    }else{
+        Ok(())
+    }
 }
 
 
