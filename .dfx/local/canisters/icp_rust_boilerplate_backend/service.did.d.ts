@@ -2,8 +2,7 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 
 export interface ChangeRecord { 'change_type' : string, 'timestamp' : bigint }
-export type Error = { 'NotFound' : { 'msg' : string } } |
-  { 'CustomError' : { 'msg' : string, 'code' : number } };
+export type Error = { 'NotFound' : { 'msg' : string } };
 export interface ItemStatistics {
   'total_items' : bigint,
   'average_availability_rate' : number,
@@ -11,6 +10,10 @@ export interface ItemStatistics {
 export type Query = { 'GetItem' : bigint };
 export type QueryResult = { 'Error' : Error } |
   { 'Item' : SmartStorageItem };
+export type Result = { 'Ok' : SmartStorageItem } |
+  { 'Err' : Error };
+export type Result_1 = { 'Ok' : boolean } |
+  { 'Err' : Error };
 export interface SmartStorageItem {
   'id' : bigint,
   'updated_at' : [] | [bigint],
@@ -27,6 +30,7 @@ export interface SmartStorageItemPayload {
   'location' : string,
 }
 export interface TransactionRecord {
+  'transaction_type' : string,
   'change_type' : string,
   'timestamp' : bigint,
 }
@@ -37,14 +41,10 @@ export interface _SERVICE {
   >,
   'batch_query' : ActorMethod<[Array<Query>], Array<QueryResult>>,
   'bulk_update_smart_storage_items' : ActorMethod<
-    [Array<{ 'id' : bigint, 'payload' : SmartStorageItemPayload }>],
-    Array<{ 'Ok' : SmartStorageItem } | { 'Err' : Error }>
+    [Array<[bigint, SmartStorageItemPayload]>],
+    Array<Result>
   >,
-  'delete_smart_storage_item' : ActorMethod<
-    [bigint],
-    { 'Ok' : SmartStorageItem } |
-      { 'Err' : Error }
-  >,
+  'delete_smart_storage_item' : ActorMethod<[bigint], Result>,
   'get_all_smart_storage_items' : ActorMethod<[], Array<SmartStorageItem>>,
   'get_available_smart_storage_items' : ActorMethod<
     [],
@@ -60,31 +60,14 @@ export interface _SERVICE {
     [bigint, bigint],
     Array<SmartStorageItem>
   >,
-  'get_smart_storage_item' : ActorMethod<
-    [bigint],
-    { 'Ok' : SmartStorageItem } |
-      { 'Err' : Error }
-  >,
-  'is_item_available' : ActorMethod<
-    [bigint],
-    { 'Ok' : boolean } |
-      { 'Err' : Error }
-  >,
-  'mark_item_as_available' : ActorMethod<
-    [bigint],
-    { 'Ok' : SmartStorageItem } |
-      { 'Err' : Error }
-  >,
-  'mark_item_as_unavailable' : ActorMethod<
-    [bigint],
-    { 'Ok' : SmartStorageItem } |
-      { 'Err' : Error }
-  >,
+  'get_smart_storage_item' : ActorMethod<[bigint], Result>,
+  'is_item_available' : ActorMethod<[bigint], Result_1>,
+  'mark_item_as_available' : ActorMethod<[bigint], Result>,
+  'mark_item_as_unavailable' : ActorMethod<[bigint], Result>,
   'search_smart_storage_items' : ActorMethod<[string], Array<SmartStorageItem>>,
   'sort_items_by_name' : ActorMethod<[], Array<SmartStorageItem>>,
   'update_smart_storage_item' : ActorMethod<
     [bigint, SmartStorageItemPayload],
-    { 'Ok' : SmartStorageItem } |
-      { 'Err' : Error }
+    Result
   >,
 }

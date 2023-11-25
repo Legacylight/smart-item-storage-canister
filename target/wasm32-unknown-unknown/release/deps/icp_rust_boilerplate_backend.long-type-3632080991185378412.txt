@@ -1,1 +1,0 @@
-RefMut<'_, StableBTreeMap<u64, SmartStorageItem, VirtualMemory<Ic0StableMemory>>>
